@@ -144,7 +144,7 @@ python 1_reps_folder_maker.py fragment_1
 ### `run_selected_eq.py`
 
 Runs the restrained equilibration of every system listed in
-`all_fragment_reps_sampled.csv`.
+`all_fragment_reps.csv`.
 
 Each replica passes through three stages of decreasing restraint strength, all
 referenced to the minimised structure. Restraints are first applied to the
@@ -155,19 +155,30 @@ point onwards. Restraints are then reduced to the main-chain atoms at
 at constant pressure. The final coordinates and the trajectory of the last stage
 are made whole and centred in the box.
 
-The `.mdp` files defining the three stages are read from `md_skelet/`, which is
-shared by all fragments. Runs are executed sequentially on GPU 0; the loop stops
-on the first failing system.
+The `.mdp` files defining the three stages are read from `md_skelet/`, which sits
+next to this script and is shared by all fragments. Replicas are run
+sequentially, and the loop stops on the first failing system.
 
 **Usage**
 
-Run from inside the `reps_reference` directory of the fragment, with
-`md_skelet` two levels above it:
+All paths are resolved relative to the script and to the fragment directory
+given as the argument, so the script can be run from anywhere:
 
 ```bash
-cd fragment_1/reps_reference
-python ../../run_selected_eq.py
+conda activate AmberTools23
+python run_selected_eq.py fragment_1
 ```
+
+Queued on the cluster with the task spooler, one fragment per job:
+
+```bash
+for f in fragment_*/; do tsp python run_selected_eq.py "$f"; done
+```
+
+The conda environment must be active before the job is enqueued, since the task
+spooler inherits the environment of the calling shell. Use `tsp -S 1` to keep the
+jobs from competing for the same GPU, or pass `--gpu-id` to spread them across
+cards.
 
 **Outputs**
 
