@@ -75,36 +75,48 @@ python 0_fragment_reps_generator.py fragment_1
   | `scope` | SCOP classification of the source domain |
   | `parent` | source PDB ID and residue range |
 
-  ### `1_reps_folder_maker.py`
+ ### `1_reps_folder_maker.py`
 
 Builds the simulation systems for every MD replica of a given ancestral
 fragment.
 
 For each structure listed in `fragment_templates.csv`, the extracted PDB file is
-passed to `make_system_caps` from the `ff19_system_maker` toolkit. The peptide
-termini are capped with acetyl (ACE) and N-methyl (NME) groups, the topology is
-generated with `tleap` using the ff19SB force field, and the peptide is placed in
-a rhombic dodecahedral box with a minimum solute-boundary distance of 1.25 nm,
-solvated with OPC water, neutralised and brought to 0.15 M NaCl. The Amber
-topology is then converted to GROMACS format. A structure that fails to
-parameterise is reported and skipped.
+passed to `make_system_caps` from the `ff19_system_maker` toolkit. Hydrogens are
+stripped, the peptide termini are capped with acetyl (ACE) and N-methyl (NME)
+groups, and the topology is generated with `tleap` using the ff19SB force field.
+The Amber topology is converted to GROMACS format, after which the peptide is
+placed in a rhombic dodecahedral box with a minimum solute-boundary distance of
+1.25 nm, solvated with OPC water, and neutralised to a NaCl concentration of
+0.15 M. Position restraints are generated for the protein heavy atoms, the
+system is energy-minimised, and the minimised coordinates are made whole and
+centred in the box. A structure that fails at any of these stages is reported
+and skipped.
 
-> **Requires AmberTools.** `tleap` and the associated Amber force field files
+Each system directory therefore contains everything needed to start
+equilibration: `system.gro`, `topology.top`, `posre.itp`, the minimised
+structure `mini_c.gro`, and the ion and water parameter files.
+
+> **Requires AmberTools and GROMACS.** `tleap` and the Amber force field files
 > are not bundled with this repository. The pipeline was run with AmberTools 23;
 > later releases are expected to work, but the ff19SB parameters must match those
 > reported in the thesis. AmberTools is distributed free of charge, mostly under
 > the GNU General Public License, and can be obtained from
 > [ambermd.org](https://ambermd.org/GetAmber.php#ambertools). Install it into a
 > dedicated conda environment and activate that environment before running this
-> script, so that `tleap` is on `PATH`.
+> script, so that `tleap` and `gmx` are both on `PATH`.
 
 The resulting directory is then replicated as many times as the replica count
 assigned to that structure in the previous step, so that every copy can be
-minimised and equilibrated independently with its own randomly drawn velocities.
-Systems are grouped by parent structure, meaning each source sequence of a
-fragment keeps a separate subtree and the replicas of one sequence are never
-mixed with those of another.
+equilibrated independently with its own randomly drawn velocities. Systems are
+grouped by parent structure, meaning each source sequence of a fragment keeps a
+separate subtree and the replicas of one sequence are never mixed with those of
+another.
 
+The script does not overwrite existing systems: an interrupted run leaves the
+partially built tree in place and must be restarted after removing
+`reps_reference`. Because the path to the toolkit is resolved relative to the
+working directory, the script has to be run from the directory containing
+`ff19_system_maker`.
 
 **Usage**
 
@@ -116,7 +128,7 @@ python 1_reps_folder_maker.py fragment_1
 **Outputs**
 
 - `fragment_1/reps_reference/<parent>/<structure>_<k>/` — one directory per MD
-  replica, containing the solvated system ready for energy minimisation
+  replica, containing the minimised, solvated system
 - `fragment_1/all_fragment_reps.csv` — one row per replica:
 
   | column | description |
@@ -126,3 +138,42 @@ python 1_reps_folder_maker.py fragment_1
   | `resolution` | resolution in Å (empty for NMR) |
   | `sequence` | fragment sequence |
   | `parent` | source PDB ID and residue range |
+
+---
+
+### `run_selected_eq.py`
+
+Runs the restrained equilibration of every system listed in
+`all_fragment_reps_sampled.csv`.
+
+Each replica passes through three stages of decreasing restraint strength, all
+referenced to the minimised structure. Restraints are first applied to the
+protein heavy atoms at 1000 kJ mol⁻¹ nm⁻² for 50 ps at constant volume, with
+velocities drawn at random, so replicas of the same structure diverge from this
+point onwards. Restraints are then reduced to the main-chain atoms at
+500 kJ mol⁻¹ nm⁻² and finally to the backbone at 250 kJ mol⁻¹ nm⁻², both stages
+at constant pressure. The final coordinates and the trajectory of the last stage
+are made whole and centred in the box.
+
+The `.mdp` files defining the three stages are read from `md_skelet/`, which is
+shared by all fragments. Runs are executed sequentially on GPU 0; the loop stops
+on the first failing system.
+
+**Usage**
+
+Run from inside the `reps_reference` directory of the fragment, with
+`md_skelet` two levels above it:
+
+```bash
+cd fragment_1/reps_reference
+python ../../run_selected_eq.py
+```
+
+**Outputs**
+
+Written into each replica directory:
+
+- `equ_2_c.gro` — final equilibrated structure, used to define the conformational
+  basin and to compute the descriptors
+- `equ_2.xtc` — trajectory of the last equilibration stage
+- `nvt.*`, `equ_1.*`, `equ_2.*` — GROMACS output of the individual stages
