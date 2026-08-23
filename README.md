@@ -3,14 +3,18 @@
 The pipeline operates on a per-fragment basis. Before any processing, the
 following structure must be prepared under `fragment_generator/`:
 
+```text
 fragment_generator/
 ├── PDB_sequences/
-│ └── pdb_seqres.txt # FASTA file with all PDB sequences (shared across fragments)
+│   └── pdb_seqres.txt                 # FASTA file with all PDB sequences (shared across fragments)
 ├── fragment_1/
-│ └── ancestral_data_no_gaps.dat # source sequences and PDB IDs for this fragment
+│   └── ancestral_data_no_gaps.dat     # source sequences and PDB IDs for this fragment
 ├── fragment_2/
-│ └── ancestral_data_no_gaps.dat
+│   └── ancestral_data_no_gaps.dat
+├── fragment_3/
+│   └── ancestral_data_no_gaps.dat
 └── ...
+```
 
 ### File descriptions
 
