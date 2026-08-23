@@ -81,10 +81,21 @@ fragment.
 
 For each structure listed in `fragment_templates.csv`, the extracted PDB file is
 passed to `make_system_caps` from the `ff19_system_maker` toolkit. The peptide
-termini are capped with acetyl and N-methyl groups, the topology is generated
-with the ff19SB force field, and the peptide is placed in a rhombic dodecahedral
-box, solvated with OPC water, neutralised and brought to 0.15 M NaCl. A
-structure that fails to parameterise is reported and skipped.
+termini are capped with acetyl (ACE) and N-methyl (NME) groups, the topology is
+generated with `tleap` using the ff19SB force field, and the peptide is placed in
+a rhombic dodecahedral box with a minimum solute-boundary distance of 1.25 nm,
+solvated with OPC water, neutralised and brought to 0.15 M NaCl. The Amber
+topology is then converted to GROMACS format. A structure that fails to
+parameterise is reported and skipped.
+
+> **Requires AmberTools.** `tleap` and the associated Amber force field files
+> are not bundled with this repository. The pipeline was run with AmberTools 23;
+> later releases are expected to work, but the ff19SB parameters must match those
+> reported in the thesis. AmberTools is distributed free of charge, mostly under
+> the GNU General Public License, and can be obtained from
+> [ambermd.org](https://ambermd.org/GetAmber.php#ambertools). Install it into a
+> dedicated conda environment and activate that environment before running this
+> script, so that `tleap` is on `PATH`.
 
 The resulting directory is then replicated as many times as the replica count
 assigned to that structure in the previous step, so that every copy can be
@@ -93,9 +104,11 @@ Systems are grouped by parent structure, meaning each source sequence of a
 fragment keeps a separate subtree and the replicas of one sequence are never
 mixed with those of another.
 
+
 **Usage**
 
 ```bash
+conda activate AmberTools23
 python 1_reps_folder_maker.py fragment_1
 ```
 
