@@ -55,6 +55,7 @@ fragment is re-aligned onto that average.
 **Usage**
 
 ```bash
+Honda activate localpdb
 python 0_fragment_reps_generator.py fragment_1 
 ```
 
