@@ -73,3 +73,42 @@ python 0_fragment_reps_generator.py fragment_1
   | `sequence` | fragment sequence used as the search query |
   | `scope` | SCOP classification of the source domain |
   | `parent` | source PDB ID and residue range |
+
+  ### `1_reps_folder_maker.py`
+
+Builds the simulation systems for every MD replica of a given ancestral
+fragment.
+
+For each structure listed in `fragment_templates.csv`, the extracted PDB file is
+passed to `make_system_caps` from the `ff19_system_maker` toolkit. The peptide
+termini are capped with acetyl and N-methyl groups, the topology is generated
+with the ff19SB force field, and the peptide is placed in a rhombic dodecahedral
+box, solvated with OPC water, neutralised and brought to 0.15 M NaCl. A
+structure that fails to parameterise is reported and skipped.
+
+The resulting directory is then replicated as many times as the replica count
+assigned to that structure in the previous step, so that every copy can be
+minimised and equilibrated independently with its own randomly drawn velocities.
+Systems are grouped by parent structure, meaning each source sequence of a
+fragment keeps a separate subtree and the replicas of one sequence are never
+mixed with those of another.
+
+**Usage**
+
+```bash
+python 1_reps_folder_maker.py fragment_1
+```
+
+**Outputs**
+
+- `fragment_1/reps_reference/<parent>/<structure>_<k>/` — one directory per MD
+  replica, containing the solvated system ready for energy minimisation
+- `fragment_1/all_fragment_reps.csv` — one row per replica:
+
+  | column | description |
+  | --- | --- |
+  | `dir` | replica directory name, `<structure>_<k>` |
+  | `method` | experimental method of the parent entry |
+  | `resolution` | resolution in Å (empty for NMR) |
+  | `sequence` | fragment sequence |
+  | `parent` | source PDB ID and residue range |
