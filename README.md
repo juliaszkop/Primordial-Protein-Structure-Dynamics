@@ -28,3 +28,48 @@ fragment_generator/
 
 - A local PDB mirror managed by the `localpdb` package (expected at
   `/data/LOCAL_PDB`), set up with the `PDBChain` plugin
+
+  ### `0_fragment_reps_generator.py`
+
+Extracts experimental structures of a given ancestral fragment from the PDB and
+allocates MD replicas across them.
+
+For each source sequence listed in `ancestral_data_no_gaps.dat`, the script
+searches `pdb_seqres.txt` for exact substring matches, resolves the matching
+chains against the local PDB mirror, and locates the fragment within each
+structure by scanning the sequence of CA-containing residues. Every hit is
+written as a separate PDB file restricted to a single model and chain, with
+alternate locations reduced to conformer A.
+
+Because NMR entries contribute multiple models of the same chain, the MD budget
+is distributed across hits rather than assigned per file: each source sequence
+receives a fixed total of 25 replicas, allocated so that every hit is sampled at
+least once and the remainder is drawn with replacement. When a sequence yields
+more than 25 hits, 25 are drawn without replacement.
+
+All extracted fragments are then superimposed on main-chain atoms (N, CA, C, O)
+using the Kabsch algorithm. The first structure serves as the initial reference,
+an average structure is computed from the superimposed coordinates, and every
+fragment is re-aligned onto that average.
+
+**Usage**
+
+```bash
+python 0_fragment_reps_generator.py fragment_1 
+```
+
+**Outputs**
+
+- `fragment_1_done/` — one PDB file per extracted hit, aligned to the
+  average structure, plus `average.pdb`
+- `fragment_1/fragment_templates.csv` — one row per extracted structure:
+
+  | column | description |
+  | --- | --- |
+  | `pdb_file` | file name of the extracted fragment |
+  | `counts` | number of MD replicas allocated to this structure |
+  | `method` | experimental method of the parent entry |
+  | `resolution` | resolution in Å (empty for NMR) |
+  | `sequence` | fragment sequence used as the search query |
+  | `scope` | SCOP classification of the source domain |
+  | `parent` | source PDB ID and residue range |
